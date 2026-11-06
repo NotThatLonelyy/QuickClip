@@ -405,7 +405,7 @@ public final class VideoCollectionScreen extends GuiScreen {
                     if (scanDirectory != null
                             && Files.isDirectory(scanDirectory)) {
                         Stream<Path> stream =
-                                Files.walk(scanDirectory, 3);
+                                Files.walk(scanDirectory, 32);
                         try {
                             stream.filter(
                                             VideoCollectionScreen

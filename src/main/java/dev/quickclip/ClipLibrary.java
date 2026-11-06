@@ -101,6 +101,31 @@ public final class ClipLibrary {
         return folder;
     }
 
+    /** Creates a folder inside a selected parent, allowing unlimited nesting under the clip root. */
+    public static Path createFolder(Path parent, String name) throws IOException {
+        String clean = sanitizeName(name);
+        if (clean.isEmpty()) throw new IOException("Invalid folder name.");
+        Path root = getRoot(QuickClipConfig.get()).toAbsolutePath().normalize();
+        Path base = parent == null ? root : parent.toAbsolutePath().normalize();
+        if (!base.startsWith(root)) throw new IOException("Invalid folder location.");
+        Path folder = base.resolve(clean).normalize();
+        if (!folder.startsWith(root)) throw new IOException("Invalid folder location.");
+        if (Files.exists(folder)) throw new IOException("A folder named '" + clean + "' exists.");
+        Files.createDirectories(folder);
+        return folder;
+    }
+
+    /** Lists direct children of any folder inside the clip library. */
+    public static List<Path> listFolders(Path parent) {
+        List<Path> folders = new ArrayList<Path>();
+        if (parent == null) return folders;
+        try (Stream<Path> stream = Files.list(parent)) {
+            stream.filter(Files::isDirectory).forEach(folders::add);
+        } catch (IOException exception) { return folders; }
+        Collections.sort(folders, (a, b) -> a.getFileName().toString().compareToIgnoreCase(b.getFileName().toString()));
+        return folders;
+    }
+
     /** Moves a clip into a folder; never overwrites. Returns the new path. */
     public static Path move(Path file, Path folder) throws IOException {
         if (!Files.isRegularFile(file)) {
@@ -161,7 +186,7 @@ public final class ClipLibrary {
     public static long fingerprint(QuickClipConfig config) {
         Path root = getRoot(config);
         long[] hash = {17L};
-        try (Stream<Path> stream = Files.walk(root, 3)) {
+        try (Stream<Path> stream = Files.walk(root, 32)) {
             stream.forEach(path -> {
                 try {
                     hash[0] = hash[0] * 31L + path.toString().hashCode();

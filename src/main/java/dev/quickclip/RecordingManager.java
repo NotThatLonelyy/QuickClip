@@ -672,9 +672,10 @@ public final class RecordingManager {
      */
     private void updateAdaptiveCaptureRate(long nowNanos) {
         QuickClipConfig config = QuickClipConfig.get();
-        if (!config.perfOptimizerEnabled
-                || !config.perfAutoAdjust
-                || !config.perfActionLowerFps) {
+        // Never silently lower the recording frame rate. A capture preset's
+        // FPS is a hard target; performance controls may report pressure but
+        // must not turn a 120 FPS recording into sparse frames.
+        if (true) {
             if (baseFrameIntervalNanos > 0L
                     && frameIntervalNanos
                         != baseFrameIntervalNanos) {

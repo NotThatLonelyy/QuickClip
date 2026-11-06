@@ -89,7 +89,11 @@ public final class FFmpegEncoder {
         this.outputHeight = outputHeight;
         this.fps = fps;
         this.filePrefix = sanitizePrefix(filePrefix);
-        this.queueCapacity = config.perfModeGamePriority ? 6 : 12;
+        // Keep a real buffering window. A 6-frame queue at 120 FPS is only 50 ms
+        // and causes aggressive frame dropping whenever FFmpeg stalls briefly.
+        // The queue lives off the render thread and is the primary protection
+        // against turning a configured 120 FPS capture into a 20-30 FPS clip.
+        this.queueCapacity = config.perfModeGamePriority ? 48 : 96;
         this.queue = new ArrayBlockingQueue<CapturedFrame>(queueCapacity);
     }
 
