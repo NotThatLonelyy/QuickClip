@@ -20,9 +20,8 @@ public final class DefaultWatermark {
 
     public static void ensureSeeded() {
         QuickClipConfig config = QuickClipConfig.get();
-        if (config.defaultWatermarkSeeded) {
-            return;
-        }
+        // Re-apply the fixed branding policy on startup so old editable
+        // watermark configurations are migrated automatically.
         try (InputStream in =
                 DefaultWatermark.class.getResourceAsStream(RESOURCE)) {
             if (in == null) {
@@ -33,18 +32,21 @@ public final class DefaultWatermark {
             Path target = WatermarkImageStore.getWatermarksDir()
                     .resolve(FILE_NAME);
             Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
-            if (config.watermarkSlots.isEmpty()) {
-                WatermarkSlot slot = new WatermarkSlot();
-                slot.enabled = true;
-                slot.name = "QuickClip";
-                slot.kind = WatermarkSlot.Kind.IMAGE;
-                slot.imagePath = FILE_NAME;
-                slot.position = WatermarkSlot.Position.BOTTOM_RIGHT;
-                slot.opacity = 80;
-                slot.scale = 30;
-                config.watermarkSlots.add(slot);
-            }
+            // QuickClip branding is intentionally fixed: one logo, bottom-right,
+            // 50% opacity. It is baked into recordings only (not a permanent HUD).
+            config.watermarkSlots.clear();
+            WatermarkSlot slot = new WatermarkSlot();
+            slot.enabled = true;
+            slot.name = "QuickClip";
+            slot.kind = WatermarkSlot.Kind.IMAGE;
+            slot.imagePath = FILE_NAME;
+            slot.position = WatermarkSlot.Position.BOTTOM_RIGHT;
+            slot.opacity = 50;
+            slot.scale = 100;
+            slot.padding = 8;
+            config.watermarkSlots.add(slot);
             config.watermarksEnabled = true;
+            config.showWatermarksLive = false;
             config.defaultWatermarkSeeded = true;
             config.save();
         } catch (IOException | RuntimeException exception) {

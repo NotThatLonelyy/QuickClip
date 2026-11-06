@@ -744,6 +744,7 @@ public final class QuickClipConfig {
             audioSampleRate = 48000;
             perfOptimizerEnabled = false;
             perfAutoAdjust = false;
+            perfActionLowerFps = false;
         } else {
             resolution = "1080p";
             fps = 60;

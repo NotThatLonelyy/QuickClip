@@ -205,372 +205,66 @@ class QuickClipSettingsScreenV109 extends GuiScreen {
     }
 
     private void buildContent(int left, int widthAvailable) {
+        // Intentionally minimal F12 settings: only controls that directly affect
+        // recording output or where recordings are stored.
         int half = Math.max(88, (widthAvailable - 6) / 2);
         int right = left + half + 6;
         int y = 0;
 
-        addAction(
-                left,
-                widthAvailable,
-                y,
+        addAction(left, widthAvailable, y,
                 tr("screen.quickclip.settings.open_video_collection"),
                 () -> mc.displayGuiScreen(new VideoCollectionScreen(this)),
-                "video collection gallery recordings clips");
+                "captures recordings folders gallery");
 
-        addLabel("Rename File Name", y += ROW, ThemeRole.SECONDARY);
-        y += 12;
-        addText(
-                left,
-                widthAvailable,
-                y,
-                "Rename File Name",
+        addHeader("Recording", y += ROW);
+        addCycle(left, half, y += 12,
+                () -> "Resolution: " + display(config.resolution),
+                () -> config.resolution = next(config.resolution, QuickClipConfig.RESOLUTIONS),
+                () -> config.resolution = previous(config.resolution, QuickClipConfig.RESOLUTIONS),
+                "resolution native 1080p 720p 480p");
+        addSlider(right, half, y,
+                () -> config.fps, value -> config.fps = value,
+                30, 120, 30, value -> "FPS: " + value,
+                "fps frame rate timing 30 60 120");
+        addCycle(left, half, y += ROW,
+                () -> "Quality: " + display(config.quality),
+                () -> config.quality = next(config.quality, QuickClipConfig.QUALITIES),
+                () -> config.quality = previous(config.quality, QuickClipConfig.QUALITIES),
+                "quality high balanced performance");
+        addCycle(right, half, y,
+                () -> "Output: ." + config.getFormat(),
+                () -> { config.format = next(config.format, QuickClipConfig.FORMATS); config.validateAudioEncoderCompatibility(); },
+                () -> { config.format = previous(config.format, QuickClipConfig.FORMATS); config.validateAudioEncoderCompatibility(); },
+                "format output mp4 mkv mov webm");
+        addCycle(left, widthAvailable, y += ROW,
+                this::videoEncoderLabel,
+                () -> cycleVideoEncoder(true), () -> cycleVideoEncoder(false),
+                "encoder nvidia nvenc software amd intel",
+                () -> !encoderProbeRunning);
+        addText(left, widthAvailable, y += ROW, "Bitrate",
+                () -> config.bitrate,
+                value -> config.bitrate = isBlank(value) ? "auto" : value.trim(),
+                16, "bitrate auto 8m 4500k");
+
+        addHeader("Timing", y += ROW);
+        addSlider(left, widthAvailable, y += 12,
+                () -> config.replayBufferDurationSeconds,
+                value -> config.replayBufferDurationSeconds = value,
+                10, 300, 10, value -> "Replay Buffer: " + value + " s",
+                "timing replay duration seconds");
+
+        addHeader("Files", y += ROW);
+        addText(left, widthAvailable, y += 12, "File Name",
                 () -> config.filenamePattern,
                 value -> config.filenamePattern = isBlank(value)
-                        ? QuickClipConfig.DEFAULT_FILENAME_PATTERN
-                        : value.trim(),
-                128,
-                "rename filename pattern datetime date time");
-
-        addHeader(tr("screen.quickclip.settings.video"), y += ROW);
-        y += 12;
-        addCycle(
-                left,
-                half,
-                y,
-                () -> "Output: ." + config.getFormat(),
-                () -> {
-                    config.format = next(config.format, QuickClipConfig.FORMATS);
-                    config.validateAudioEncoderCompatibility();
-                },
-                () -> {
-                    config.format = previous(
-                            config.format,
-                            QuickClipConfig.FORMATS);
-                    config.validateAudioEncoderCompatibility();
-                },
-                "format output mp4 mkv mov webm");
-        addCycle(
-                right,
-                half,
-                y,
-                () -> "Resolution: " + display(config.resolution),
-                () -> config.resolution =
-                        next(config.resolution, QuickClipConfig.RESOLUTIONS),
-                () -> config.resolution = previous(
-                        config.resolution,
-                        QuickClipConfig.RESOLUTIONS),
-                "resolution native 1080p 720p 480p");
-
-        addCycle(
-                left,
-                half,
-                y += ROW,
-                () -> "Quality: " + display(config.quality),
-                () -> config.quality =
-                        next(config.quality, QuickClipConfig.QUALITIES),
-                () -> config.quality = previous(
-                        config.quality,
-                        QuickClipConfig.QUALITIES),
-                "quality high balanced performance");
-        addSlider(
-                right,
-                half,
-                y,
-                () -> config.fps,
-                value -> config.fps = value,
-                30,
-                120,
-                30,
-                value -> "FPS: " + value,
-                "fps frame rate 30 60 120");
-
-        if (encoderProbeComplete
-                && !availableVideoEncoders.contains(config.encoder)) {
-            config.encoder = QuickClipConfig.VideoEncoder.SOFTWARE;
-        }
-        addCycle(
-                left,
-                widthAvailable,
-                y += ROW,
-                this::videoEncoderLabel,
-                () -> cycleVideoEncoder(true),
-                () -> cycleVideoEncoder(false),
-                "encoder software x264 nvidia nvenc amd intel quicksync",
-                () -> encoderProbeComplete && !encoderProbeRunning);
-
-        addAction(
-                left,
-                half,
-                y += ROW,
-                this::ffmpegProbeButtonLabel,
-                this::detectFfmpeg,
-                "ffmpeg encoder detect loading",
-                () -> !encoderProbeRunning);
-        addAction(
-                right,
-                half,
-                y,
-                this::ffmpegDownloadButtonLabel,
-                () -> {
-                    if (canOpenFfmpegDownload()) {
-                        mc.displayGuiScreen(
-                                new FfmpegDownloadScreen(this));
-                    }
-                },
-                "download ffmpeg setup install",
-                this::canOpenFfmpegDownload);
-
-        addText(
-                left,
-                widthAvailable,
-                y += ROW,
-                tr("screen.quickclip.settings.bitrate"),
-                () -> config.bitrate,
-                value -> config.bitrate = isBlank(value)
-                        ? "auto"
-                        : value.trim(),
-                16,
-                "bitrate auto 8m 4500k");
-        addLabel(
-                tr("screen.quickclip.settings.bitrate_hint"),
-                y += ROW,
-                ThemeRole.MUTED);
-        addWrappedLabel(
-                "Performance: " + performanceHint(),
-                y += 12,
-                ThemeRole.MUTED);
-
-        addHeader(tr("screen.quickclip.settings.audio"), y += ROW);
-        y += 12;
-        addToggle(
-                left,
-                half,
-                y,
-                tr("screen.quickclip.settings.capture_audio"),
-                () -> config.captureAudio,
-                value -> config.captureAudio = value,
-                "capture audio game sound");
-        addAction(
-                right,
-                half,
-                y,
-                () -> audioScanRunning
-                        ? "Scanning Audio..."
-                        : trim(audioStatus, 34),
-                this::refreshAudioDevices,
-                "audio devices refresh scan");
-
-        addText(
-                left,
-                widthAvailable,
-                y += ROW,
-                "Audio Device",
-                () -> isBlank(config.audioDevice)
-                        ? "auto"
-                        : config.audioDevice,
-                value -> config.audioDevice = isBlank(value)
-                        ? "auto"
-                        : value.trim(),
-                128,
-                "audio device stereo mix loopback");
-
-        List<QuickClipConfig.AudioEncoder> compatibleAudioEncoders =
-                compatibleAudioEncoders();
-        if (!compatibleAudioEncoders.contains(config.audioEncoder)) {
-            config.audioEncoder = compatibleAudioEncoders.get(0);
-            safeSave();
-        }
-        addAction(
-                left,
-                widthAvailable,
-                y += ROW,
-                () -> audioEncoderLabel(config.audioEncoder),
-                () -> {
-                    List<QuickClipConfig.AudioEncoder> available =
-                            compatibleAudioEncoders();
-                    config.audioEncoder = nextAudioEncoder(
-                            available,
-                            config.audioEncoder);
-                },
-                "audio encoder codec aac opus mp3 flac lossless");
-
-        addSlider(
-                left,
-                widthAvailable,
-                y += ROW,
-                () -> config.audioVolume,
-                value -> config.audioVolume = value,
-                0,
-                200,
-                5,
-                value -> "Audio Volume: " + value + "%",
-                "audio volume gain");
-
-        addSlider(
-                left,
-                half,
-                y += ROW,
-                () -> config.gameAudioVolume,
-                value -> config.gameAudioVolume = value,
-                0,
-                200,
-                5,
-                value -> "Game Volume: " + value + "%",
-                "game volume");
-        addCycle(
-                left,
-                widthAvailable,
-                y += ROW,
-                () -> "Audio Delay: "
-                        + config.audioDelayPreset.displayName
-                        + " (" + config.getEffectiveAudioDelay() + "ms)",
-                () -> config.audioDelayPreset =
-                        config.audioDelayPreset.next(),
-                () -> config.audioDelayPreset =
-                        config.audioDelayPreset.previous(),
-                "audio delay sync");
-        addSlider(
-                left,
-                widthAvailable,
-                y += ROW,
-                () -> config.audioSyncOffsetMs,
-                value -> config.audioSyncOffsetMs = value,
-                0,
-                500,
-                5,
-                value -> "Custom Delay: " + value + " ms",
-                "custom audio delay sync");
-
-        y += 26;
-        addWrappedLabel(platformAudioWarning(), y, ThemeRole.WARNING);
-        y += wrappedHeight(platformAudioWarning(), panelWidth - 28) + 6;
-
-        addHeader(tr("screen.quickclip.settings.general"), y);
-        y += 12;
-        addToggle(
-                left,
-                half,
-                y,
-                tr("screen.quickclip.settings.enabled"),
-                () -> config.enabled,
-                value -> config.enabled = value,
-                "enabled master recording");
-        addToggle(
-                right,
-                half,
-                y,
-                tr("screen.quickclip.settings.overlay"),
-                () -> config.showOverlay,
-                value -> config.showOverlay = value,
-                "show overlay hud");
-        addToggle(
-                left,
-                half,
-                y += ROW,
-                tr("screen.quickclip.settings.stop_on_disconnect"),
-                () -> config.stopOnDisconnect,
-                value -> config.stopOnDisconnect = value,
-                "stop disconnect world leave");
-        addToggle(
-                right,
-                half,
-                y,
-                tr("screen.quickclip.settings.show_home_button"),
-                () -> config.showHomeButton,
-                value -> config.showHomeButton = value,
-                "home button title menu");
-        addCycle(
-                left,
-                half,
-                y += ROW,
-                () -> "Overlay Position: "
-                        + config.overlayPosition.displayName,
-                () -> config.overlayPosition =
-                        config.overlayPosition.next(),
-                () -> config.overlayPosition =
-                        config.overlayPosition.previous(),
-                "overlay position top left right bottom center");
-        addSlider(
-                right,
-                half,
-                y,
-                () -> config.overlayScale,
-                value -> config.overlayScale = value,
-                50,
-                200,
-                5,
-                value -> "Overlay Scale: " + value + "%"
-                        + (value == 100 ? " (Default)" : ""),
-                "overlay scale");
-
-        int browseWidth = NativeFolderPicker.isSupported() ? 62 : 0;
-        int outputFieldWidth = browseWidth > 0
-                ? widthAvailable - browseWidth - 6
-                : widthAvailable;
-        outputDirectoryEntry = addText(
-                left,
-                outputFieldWidth,
-                y += ROW,
-                tr("screen.quickclip.settings.output_dir"),
+                        ? QuickClipConfig.DEFAULT_FILENAME_PATTERN : value.trim(),
+                128, "filename datetime date time rename");
+        addText(left, widthAvailable, y += ROW, "Output Folder",
                 () -> config.outputDir,
-                value -> config.outputDir = isBlank(value)
-                        ? "recordings"
-                        : value.trim(),
-                256,
-                "output directory folder path");
-        if (browseWidth > 0) {
-            addAction(
-                    left + outputFieldWidth + 6,
-                    browseWidth,
-                    y,
-                    tr("screen.quickclip.settings.browse"),
-                    this::chooseOutputFolder,
-                    "browse choose recordings output directory folder");
-        }
-        addLabel(
-                tr("screen.quickclip.settings.output_dir"),
-                y += ROW,
-                ThemeRole.MUTED);
-        addWrappedLabel(
-                displayOutputPath(),
-                y += 10,
-                ThemeRole.MUTED);
-        addSlider(
-                left,
-                widthAvailable,
-                y += 12,
-                () -> config.maxFileSizeMB,
-                value -> config.maxFileSizeMB = value,
-                0,
-                10240,
-                128,
-                value -> value <= 0
-                        ? tr("screen.quickclip.settings.max_file_size.unlimited")
-                        : "Max File Size: " + value + " MB",
-                "maximum file size unlimited");
+                value -> config.outputDir = isBlank(value) ? "QuickClip/Clips/Unsorted" : value.trim(),
+                256, "output folder recordings clips");
 
-        y = buildAppearance(left, right, half, widthAvailable, y + 24);
-        y = buildAdvanced(left, right, half, widthAvailable, y);
-
-        addLabel(
-                diskSpaceLine(),
-                y += ROW,
-                ThemeRole.MUTED);
-        String ffmpegLine = ffmpegStatusLine();
-        ffmpegStatusDecoration = addWrappedLabel(
-                ffmpegLine,
-                y += 14,
-                ffmpegStatusRole());
-        /*
-         * The missing-FFmpeg status commonly wraps to three lines. Reserve its
-         * measured height so the last line can scroll above the fixed footer.
-         */
-        fullContentHeight = y
-                + Math.max(
-                        wrappedHeight(ffmpegLine, widthAvailable),
-                        fontRendererObj.FONT_HEIGHT * 4)
-                + 8;
-        contentHeight = fullContentHeight;
+        fullContentHeight = y + ROW + 28;
     }
 
     private int buildAppearance(

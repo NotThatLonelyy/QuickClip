@@ -1014,17 +1014,17 @@ public final class VideoCollectionScreen extends GuiScreen {
                 textX,
                 top + 17,
                 colors.textSecondary);
+        // Notes behave like a notes app: when present, show the note directly
+        // under the file name instead of hiding it behind an action button.
+        ClipNotes clipNotes = ClipNotes.read(metadata.file);
+        String belowName = clipNotes.note == null || clipNotes.note.trim().isEmpty()
+                ? tr("screen.quickclip.video_collection.meta.recorded_at",
+                        "Recorded: %s", metadata.recordedAtDisplay)
+                        + "  [" + ClipLibrary.folderLabel(
+                                QuickClipConfig.get(), metadata.file) + "]"
+                : clipNotes.note.trim();
         fontRendererObj.drawString(
-                fontRendererObj.trimStringToWidth(
-                        tr(
-                                "screen.quickclip.video_collection.meta.recorded_at",
-                                "Recorded: %s",
-                                metadata.recordedAtDisplay)
-                                + "  [" + ClipLibrary.folderLabel(
-                                        QuickClipConfig.get(),
-                                        metadata.file) + "]"
-                                + (hasNotes(metadata.file) ? "  *" : ""),
-                        textMaximumWidth),
+                fontRendererObj.trimStringToWidth(belowName, textMaximumWidth),
                 textX,
                 top + 29,
                 colors.textSecondary);
