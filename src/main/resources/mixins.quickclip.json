@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.7.11",
+  "package": "dev.quickclip.mixin",
+  "refmap": "mixins.quickclip.refmap.json",
+  "compatibilityLevel": "JAVA_8",
+  "mixins": [],
+  "client": [
+    "MinecraftMixin",
+    "LibraryLWJGLOpenALMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

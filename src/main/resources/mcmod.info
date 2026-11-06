@@ -1,0 +1,19 @@
+[
+  {
+    "modid": "quickclip",
+    "name": "QuickClip",
+    "description": "Instant replay clips with game audio and a QuickClip watermark for Minecraft Forge 1.8.9.",
+    "version": "${version}",
+    "mcversion": "1.8.9",
+    "url": "https://notthatlonely.pages.dev",
+    "updateUrl": "",
+    "authorList": [
+      "NotThatLonely",
+      "Forge 1.8.9 port contributors"
+    ],
+    "credits": "Created by NotThatLonely, ported under the MIT License.",
+    "logoFile": "assets/quickclip/icon.png",
+    "screenshots": [],
+    "dependencies": []
+  }
+]

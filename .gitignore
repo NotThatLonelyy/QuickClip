@@ -1,0 +1,55 @@
+# eclipse
+bin
+*.launch
+.settings
+.metadata
+.classpath
+.project
+
+# idea
+out
+*.ipr
+*.iws
+*.iml
+.idea
+.vscode
+
+# gradle
+build
+.gradle
+gradle-user-home
+
+# other
+eclipse
+run
+logs
+.upstream-v1.0.08
+*.zip
+forge-*-changelog.txt
+record-able-*-sources.jar
+quickclip-*-sources.jar
+recordings
+clips
+config/quickclip.json
+config/recordable.json
+
+# local secrets and signing material
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+credentials.json
+secrets.json
+*credentials*
+*secrets*
+
+# local diagnostics and crash output
+*.log
+*.crash
+*.dmp
+hs_err_pid*

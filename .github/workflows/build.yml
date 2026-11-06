@@ -1,0 +1,65 @@
+name: Build QuickClip
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Forge 1.8.9 mod
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Java 8 (Minecraft toolchain)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "8"
+
+      - name: Remember Java 8 home
+        run: echo "QUICKCLIP_JDK8=${JAVA_HOME}" >> "${GITHUB_ENV}"
+
+      - name: Install Java 17 (Gradle host)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle (cached)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build and test
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon clean build \
+            "-Dorg.gradle.java.installations.paths=${QUICKCLIP_JDK8}"
+
+      - name: Verify single release JAR
+        id: jar
+        run: |
+          mapfile -t jars < <(find build/libs -maxdepth 1 -type f -name 'quickclip-*-forge-1.8.9.jar' | sort)
+          if [[ "${#jars[@]}" -ne 1 ]]; then
+            echo "::error::Expected exactly one release JAR in build/libs"; ls -l build/libs; exit 1
+          fi
+          jar tf "${jars[0]}" | grep -Fx "mixins.quickclip.json"
+          jar tf "${jars[0]}" | grep -Fx "assets/quickclip/icon.png"
+          if jar tf "${jars[0]}" | grep -Eqi 'recordish'; then
+            echo "::error::Old Recordish identity remains in JAR"; exit 1
+          fi
+          mkdir -p dist && cp "${jars[0]}" dist/
+          echo "path=dist/$(basename "${jars[0]}")" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuickClip-1.8.9
+          path: ${{ steps.jar.outputs.path }}
+          if-no-files-found: error
