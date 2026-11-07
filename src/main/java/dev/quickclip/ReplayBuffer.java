@@ -882,6 +882,8 @@ public final class ReplayBuffer {
                     "QuickClip-ReplayFFmpegLog");
             Map<Integer, RandomAccessFile> openFiles =
                     new HashMap<Integer, RandomAccessFile>();
+            byte[] thumbBytes = null;
+            int thumbFrameNo = 0;
             try {
                 OutputStream input = new BufferedOutputStream(
                         process.getOutputStream(),
@@ -925,6 +927,11 @@ public final class ReplayBuffer {
                         }
                         source.seek(frame.offset);
                         source.readFully(buffer);
+                        if (thumbBytes == null
+                                && thumbFrameNo >= frames.length / 2) {
+                            thumbBytes = buffer.clone();
+                        }
+                        thumbFrameNo++;
                         if (overlay != null) {
                             overlay.apply(buffer);
                         }
@@ -992,6 +999,10 @@ public final class ReplayBuffer {
                                 + tail(
                                     errors.toByteArray(),
                                     500));
+            }
+            if (thumbBytes != null) {
+                ClipThumbnail.write(thumbBytes, storedWidth, storedHeight,
+                        ClipThumbnail.sidecar(output));
             }
             return output;
         } finally {

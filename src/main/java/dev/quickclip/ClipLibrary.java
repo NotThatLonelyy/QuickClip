@@ -233,6 +233,7 @@ public final class ClipLibrary {
     public static void deleteSidecar(Path file) {
         try {
             Files.deleteIfExists(ClipNotes.sidecar(file));
+            Files.deleteIfExists(ClipThumbnail.sidecar(file));
         } catch (IOException ignored) {
             // leftover sidecar is harmless
         }
@@ -280,11 +281,15 @@ public final class ClipLibrary {
     }
 
     private static void moveSidecar(Path oldVideo, Path newVideo) {
-        Path from = ClipNotes.sidecar(oldVideo);
+        moveOne(ClipNotes.sidecar(oldVideo), ClipNotes.sidecar(newVideo));
+        moveOne(ClipThumbnail.sidecar(oldVideo),
+                ClipThumbnail.sidecar(newVideo));
+    }
+
+    private static void moveOne(Path from, Path to) {
         if (!Files.isRegularFile(from)) return;
         try {
-            Files.move(from, ClipNotes.sidecar(newVideo),
-                    StandardCopyOption.REPLACE_EXISTING);
+            Files.move(from, to, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException exception) {
             QuickClipMod.LOGGER.warn(
                     "[QuickClip] Could not move clip notes: {}",

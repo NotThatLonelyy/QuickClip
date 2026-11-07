@@ -46,3 +46,4 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - Folders starting with "." are hidden and cannot be created.
 - Watermark moved from live HUD to a save-time overlay (logo, server IP,
   date/time). "Capture while in menus" option added (default off).
+- Clip thumbnails (saved next to each clip), centered overlay text in gray at 50%, no seconds; "capture join/disconnect screens" option (default off).

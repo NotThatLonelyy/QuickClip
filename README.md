@@ -10,7 +10,7 @@ save-replay hotkey (default `F8`). No manual recording is needed.
 
 * Always-on replay buffer (default 30 s). Minimal settings: replay length,
   resolution (480p/720p/1080p), frame rate (30/60), game audio volume,
-  capture while in menus (off by default).
+  capture of join/disconnect screens (off by default).
 * Save-replay hotkey (`F8`, rebindable in Minecraft Controls).
 * Game audio capture, existing quality and encoder settings.
 * Saved clips get a burned-in layer: server address on top, QuickClip logo

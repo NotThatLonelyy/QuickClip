@@ -7,6 +7,16 @@ import dev.quickclip.QuickClipConfig;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.util.ResourceLocation;
+import dev.quickclip.ClipThumbnail;
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
@@ -26,7 +36,7 @@ import java.util.stream.Stream;
  * current folder in one list. Clips show their note under the file name.
  */
 public final class ClipFoldersScreen extends GuiScreen {
-    private static final int ROW_H = 28;
+    private static final int ROW_H = 36;
     private static final int ID_BACK = 1;
     private static final int ID_OPEN = 2;
     private static final int ID_NEW = 3;
@@ -59,6 +69,43 @@ public final class ClipFoldersScreen extends GuiScreen {
     private int refreshTicks;
     private long fingerprint = Long.MIN_VALUE;
     private Path deleteArmed;
+    private final Map<Path, ResourceLocation> thumbs =
+            new HashMap<Path, ResourceLocation>();
+    private final Set<Path> thumbTried = new HashSet<Path>();
+
+    private void releaseThumbs() {
+        if (mc != null && mc.getTextureManager() != null) {
+            for (ResourceLocation location : thumbs.values()) {
+                mc.getTextureManager().deleteTexture(location);
+            }
+        }
+        thumbs.clear();
+        thumbTried.clear();
+    }
+
+    @Override
+    public void onGuiClosed() {
+        releaseThumbs();
+    }
+
+    private ResourceLocation thumbFor(Path clip) {
+        ResourceLocation cached = thumbs.get(clip);
+        if (cached != null || thumbTried.contains(clip)) return cached;
+        thumbTried.add(clip);
+        try {
+            Path file = ClipThumbnail.sidecar(clip);
+            if (!Files.isRegularFile(file)) return null;
+            BufferedImage image = ImageIO.read(file.toFile());
+            if (image == null) return null;
+            ResourceLocation location = mc.getTextureManager()
+                    .getDynamicTextureLocation("quickclip_thumb",
+                            new DynamicTexture(image));
+            thumbs.put(clip, location);
+            return location;
+        } catch (Throwable throwable) {
+            return null;
+        }
+    }
 
     public ClipFoldersScreen(GuiScreen parent) {
         this.parent = parent;
@@ -94,6 +141,7 @@ public final class ClipFoldersScreen extends GuiScreen {
     }
 
     private void reload() {
+        releaseThumbs();
         entries = new ArrayList<Entry>();
         for (Path folder : ClipLibrary.listChildFolders(current)) {
             Entry e = new Entry();
@@ -443,22 +491,33 @@ public final class ClipFoldersScreen extends GuiScreen {
                         0x20FFFFFF);
             }
             if (e.folder) {
-                drawFolderIcon(left + 8, top + 6);
+                drawFolderIcon(left + 23, top + 11);
             } else {
-                drawClipIcon(left + 8, top + 6);
+                ResourceLocation thumb = thumbFor(e.path);
+                if (thumb != null) {
+                    GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+                    mc.getTextureManager().bindTexture(thumb);
+                    Gui.drawModalRectWithCustomSizedTexture(
+                            left + 6, top + 3, 0.0F, 0.0F, 53, 30, 53.0F,
+                            30.0F);
+                } else {
+                    Gui.drawRect(left + 6, top + 3, left + 59, top + 33,
+                            0xFF1E1E1E);
+                    drawClipIcon(left + 23, top + 11);
+                }
             }
-            int textX = left + 34;
+            int textX = left + 66;
             int maxW = right - textX - 6;
             fontRendererObj.drawStringWithShadow(
                     fontRendererObj.trimStringToWidth(e.title, maxW),
-                    textX, top + 3, 0xFFFFFF);
+                    textX, top + 5, 0xFFFFFF);
             fontRendererObj.drawString(
                     fontRendererObj.trimStringToWidth(e.line2, maxW),
-                    textX, top + 13, e.hasNote ? 0xFFD27F : 0xAAAAAA);
+                    textX, top + 16, e.hasNote ? 0xFFD27F : 0xAAAAAA);
             if (e.line3 != null) {
                 fontRendererObj.drawString(
                         fontRendererObj.trimStringToWidth(e.line3, maxW),
-                        textX, top + 22 - 1, 0x888888);
+                        textX, top + 26, 0x888888);
             }
         }
         if (!status.isEmpty()) {

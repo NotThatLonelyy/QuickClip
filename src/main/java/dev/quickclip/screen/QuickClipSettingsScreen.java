@@ -53,7 +53,7 @@ public final class QuickClipSettingsScreen extends GuiScreen {
                 "Save notification: "
                         + (c.replayBufferNotify ? "ON" : "OFF")));
         buttonList.add(new GuiButton(ID_MENUS, x, y + 120, 200, 20,
-                "Capture while in menus: "
+                "Capture join/disconnect screens: "
                         + (c.captureInMenus ? "ON" : "OFF")));
         buttonList.add(new GuiButton(ID_FOLDER, x, y + 144, 200, 20,
                 "Open clips folder"));

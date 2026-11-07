@@ -58,10 +58,9 @@ public final class ClipOverlay {
             int logoW = Math.max(1,
                     Math.round(logo.getWidth() * (logoH
                             / (float) logo.getHeight())));
-            int fontSize = Math.max(10, Math.round(height * 0.022F));
             int pad = Math.max(4, Math.round(height * 0.02F));
             String top = serverText();
-            String bottom = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+            String bottom = new SimpleDateFormat("yyyy-MM-dd HH:mm")
                     .format(new Date());
 
             BufferedImage canvas = new BufferedImage(
@@ -74,25 +73,35 @@ public final class ClipOverlay {
                         RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
                 g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
                         RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-                Font font = new Font("SansSerif", Font.BOLD, fontSize);
-                g.setFont(font);
-                FontMetrics fm = g.getFontMetrics();
-                int lineH = fm.getHeight();
-                int right = width - pad;
+
+                // Shrink the text until the widest element fits in the
+                // right 40% of the frame.
+                int fontSize = Math.max(10, Math.round(height * 0.022F));
+                FontMetrics fm;
+                int widest;
+                while (true) {
+                    g.setFont(new Font("SansSerif", Font.BOLD, fontSize));
+                    fm = g.getFontMetrics();
+                    widest = Math.max(logoW, Math.max(
+                            fm.stringWidth(top), fm.stringWidth(bottom)));
+                    if (widest <= width * 0.40F || fontSize <= 8) break;
+                    fontSize--;
+                }
+                // One shared centre line for logo and both text lines,
+                // clamped so nothing leaves the frame.
+                float centerX = width - pad - widest / 2.0F;
+                centerX = Math.max(pad + widest / 2.0F, centerX);
 
                 int bottomY = height - pad - fm.getDescent();
                 int logoY = bottomY - fm.getAscent() - 2 - logoH;
                 int topY = logoY - 2 - fm.getDescent();
 
-                // logo at 50% opacity
                 g.setComposite(AlphaComposite.getInstance(
                         AlphaComposite.SRC_OVER, 0.5F));
-                g.drawImage(logo, right - logoW, logoY, logoW, logoH, null);
-
-                g.setComposite(AlphaComposite.getInstance(
-                        AlphaComposite.SRC_OVER, 0.85F));
-                drawRight(g, fm, top, right, topY);
-                drawRight(g, fm, bottom, right, bottomY);
+                g.drawImage(logo, Math.round(centerX - logoW / 2.0F), logoY,
+                        logoW, logoH, null);
+                drawCentered(g, fm, top, centerX, topY);
+                drawCentered(g, fm, bottom, centerX, bottomY);
             } finally {
                 g.dispose();
             }
@@ -126,12 +135,12 @@ public final class ClipOverlay {
         }
     }
 
-    private static void drawRight(Graphics2D g, FontMetrics fm, String text,
-            int right, int baseline) {
-        int x = right - fm.stringWidth(text);
-        g.setColor(new Color(0, 0, 0, 200));
+    private static void drawCentered(Graphics2D g, FontMetrics fm,
+            String text, float centerX, int baseline) {
+        int x = Math.round(centerX - fm.stringWidth(text) / 2.0F);
+        g.setColor(new Color(40, 40, 40));
         g.drawString(text, x + 1, baseline + 1);
-        g.setColor(Color.WHITE);
+        g.setColor(new Color(170, 170, 170));
         g.drawString(text, x, baseline);
     }
 

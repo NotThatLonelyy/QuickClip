@@ -1618,15 +1618,15 @@ public final class RecordingManager {
         QuickClipConfig config = QuickClipConfig.get();
         Minecraft minecraft = Minecraft.getMinecraft();
         ReplayBuffer replay = ReplayBuffer.getInstance();
+        // Menus while in a world are always captured. Screens without a
+        // world (server join, disconnect, main menu) only with the option.
         if (!shouldBufferReplay(config)
-                || !isInGameState(minecraft)) {
+                || (!isInGameState(minecraft)
+                        && !config.captureInMenus)) {
             closeReplayCapture();
             if (replay.isActive()) {
                 replay.stop();
             }
-            return;
-        }
-        if (!config.captureInMenus && minecraft.currentScreen != null) {
             return;
         }
 
