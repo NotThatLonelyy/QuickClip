@@ -48,8 +48,8 @@ public final class ClipLibrary {
         Path root = getRoot(config);
         List<Path> folders = new ArrayList<Path>();
         try (Stream<Path> stream = Files.walk(root, 6)) {
-            stream.filter(p -> !p.equals(root) && Files.isDirectory(p))
-                    .forEach(folders::add);
+            stream.filter(p -> !p.equals(root) && Files.isDirectory(p)
+                    && !isHidden(root, p)).forEach(folders::add);
         } catch (IOException | RuntimeException exception) {
             return folders;
         }
@@ -69,7 +69,9 @@ public final class ClipLibrary {
     public static List<Path> listChildFolders(Path folder) {
         List<Path> out = new ArrayList<Path>();
         try (Stream<Path> stream = Files.list(folder)) {
-            stream.filter(Files::isDirectory).forEach(out::add);
+            stream.filter(p -> Files.isDirectory(p)
+                    && !p.getFileName().toString().startsWith("."))
+                    .forEach(out::add);
         } catch (IOException | RuntimeException exception) {
             return out;
         }
@@ -93,7 +95,7 @@ public final class ClipLibrary {
             throws IOException {
         String clean = sanitizeName(name);
         if (clean.isEmpty()) {
-            throw new IOException("Invalid folder name.");
+            throw new IOException("Invalid folder name (cannot start with '.').");
         }
         Path folder = parent.resolve(clean);
         if (Files.exists(folder)) {
@@ -107,7 +109,7 @@ public final class ClipLibrary {
             throws IOException {
         String clean = sanitizeName(name);
         if (clean.isEmpty()) {
-            throw new IOException("Invalid folder name.");
+            throw new IOException("Invalid folder name (cannot start with '.').");
         }
         Path target = folder.resolveSibling(clean);
         if (target.equals(folder)) return folder;
@@ -141,13 +143,26 @@ public final class ClipLibrary {
         }
     }
 
+    /** True if any path segment below the root starts with a dot. */
+    public static boolean isHidden(Path root, Path path) {
+        try {
+            Path rel = root.relativize(path);
+            for (Path part : rel) {
+                if (part.toString().startsWith(".")) return true;
+            }
+        } catch (IllegalArgumentException ignored) {
+            // not under root
+        }
+        return false;
+    }
+
     public static String sanitizeName(String raw) {
         if (raw == null) return "";
         String value = raw
                 .replaceAll("[\\\\/:*?\"<>|\\x00-\\x1F]", "")
                 .replaceAll("[ .]+$", "")
                 .trim();
-        if (value.equals(".") || value.equals("..")) return "";
+        if (value.startsWith(".")) return "";
         String upper = value.toUpperCase(java.util.Locale.ROOT);
         if (upper.matches("CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9]")) return "";
         return value.length() > 100 ? value.substring(0, 100) : value;
@@ -157,7 +172,7 @@ public final class ClipLibrary {
             throws IOException {
         String clean = sanitizeName(name);
         if (clean.isEmpty()) {
-            throw new IOException("Invalid folder name.");
+            throw new IOException("Invalid folder name (cannot start with '.').");
         }
         Path folder = getRoot(config).resolve(clean);
         if (Files.exists(folder)) {
@@ -228,7 +243,7 @@ public final class ClipLibrary {
         Path root = getRoot(config);
         long[] hash = {17L};
         try (Stream<Path> stream = Files.walk(root, 6)) {
-            stream.forEach(path -> {
+            stream.filter(path -> !isHidden(root, path)).forEach(path -> {
                 try {
                     hash[0] = hash[0] * 31L + path.toString().hashCode();
                     hash[0] = hash[0] * 31L

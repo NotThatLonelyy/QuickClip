@@ -1,6 +1,8 @@
 package dev.quickclip.screen;
 
 import dev.quickclip.ClipLibrary;
+import dev.quickclip.ClipNotes;
+import dev.quickclip.PlatformUtils;
 import dev.quickclip.QuickClipConfig;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiButton;
@@ -9,38 +11,54 @@ import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
+import java.util.stream.Stream;
 
 /**
- * Notes-app style folder browser. Shows the sub-folders of the current
- * folder (any depth) with a folder icon, name and counts. "Clips" opens the
- * clip list for the current folder.
+ * Notes-app style browser: folders (any depth) and the clips inside the
+ * current folder in one list. Clips show their note under the file name.
  */
 public final class ClipFoldersScreen extends GuiScreen {
-    private static final int ROW_H = 26;
-    private static final int ID_OPEN = 1;
-    private static final int ID_UP = 2;
+    private static final int ROW_H = 28;
+    private static final int ID_BACK = 1;
+    private static final int ID_OPEN = 2;
     private static final int ID_NEW = 3;
     private static final int ID_RENAME = 4;
     private static final int ID_DELETE = 5;
-    private static final int ID_CLIPS = 6;
-    private static final int ID_SETTINGS = 7;
-    private static final int ID_CLOSE = 8;
+    private static final int ID_MOVE = 6;
+    private static final int ID_NOTES = 7;
+    private static final int ID_SETTINGS = 8;
+    private static final int ID_CLOSE = 9;
+
+    private static final class Entry {
+        Path path;
+        boolean folder;
+        String title;
+        String line2;
+        String line3;
+        boolean hasNote;
+    }
 
     private final GuiScreen parent;
     private Path current;
-    private List<Path> children = new ArrayList<Path>();
+    private List<Entry> entries = new ArrayList<Entry>();
     private int selected = -1;
     private int scroll;
-    private int listTop;
+    private int listTop = 40;
     private int listBottom;
     private long lastClickMs;
     private int lastClickRow = -1;
     private String status = "";
     private int refreshTicks;
     private long fingerprint = Long.MIN_VALUE;
+    private Path deleteArmed;
 
     public ClipFoldersScreen(GuiScreen parent) {
         this.parent = parent;
@@ -49,73 +67,160 @@ public final class ClipFoldersScreen extends GuiScreen {
 
     @Override
     public void initGui() {
-        Keyboard.enableRepeatEvents(false);
         ClipLibrary.ensureLayout(QuickClipConfig.get());
-        reload();
         buttonList.clear();
         int cx = width / 2;
         int y1 = height - 52;
         int y2 = height - 28;
-        listTop = 44;
-        listBottom = y1 - 8;
-        buttonList.add(new GuiButton(ID_UP, cx - 205, y1, 66, 20, "< Back"));
-        buttonList.add(new GuiButton(ID_OPEN, cx - 137, y1, 66, 20, "Open"));
-        buttonList.add(new GuiButton(ID_NEW, cx - 69, y1, 90, 20,
+        listBottom = y1 - 12;
+        buttonList.add(new GuiButton(ID_BACK, cx - 205, y1, 60, 20, "< Back"));
+        buttonList.add(new GuiButton(ID_OPEN, cx - 143, y1, 60, 20, "Open"));
+        buttonList.add(new GuiButton(ID_NEW, cx - 81, y1, 86, 20,
                 "New Folder"));
-        buttonList.add(new GuiButton(ID_RENAME, cx + 23, y1, 90, 20,
+        buttonList.add(new GuiButton(ID_RENAME, cx + 7, y1, 96, 20,
                 "Rename"));
-        buttonList.add(new GuiButton(ID_DELETE, cx + 115, y1, 90, 20,
+        buttonList.add(new GuiButton(ID_DELETE, cx + 105, y1, 100, 20,
                 "Delete"));
-        buttonList.add(new GuiButton(ID_CLIPS, cx - 205, y2, 150, 20,
-                "View clips here"));
-        buttonList.add(new GuiButton(ID_SETTINGS, cx - 51, y2, 150, 20,
+        buttonList.add(new GuiButton(ID_MOVE, cx - 205, y2, 96, 20,
+                "Move to..."));
+        buttonList.add(new GuiButton(ID_NOTES, cx - 107, y2, 96, 20,
+                "Note / Link"));
+        buttonList.add(new GuiButton(ID_SETTINGS, cx - 9, y2, 96, 20,
                 "Settings"));
-        buttonList.add(new GuiButton(ID_CLOSE, cx + 105, y2, 100, 20,
+        buttonList.add(new GuiButton(ID_CLOSE, cx + 89, y2, 116, 20,
                 "Close"));
-        updateEnabled();
+        reload();
+        updateButtons();
     }
 
     private void reload() {
-        children = ClipLibrary.listChildFolders(current);
-        if (selected >= children.size()) selected = -1;
-        int max = Math.max(0, children.size() - visibleRows());
+        entries = new ArrayList<Entry>();
+        for (Path folder : ClipLibrary.listChildFolders(current)) {
+            Entry e = new Entry();
+            e.path = folder;
+            e.folder = true;
+            e.title = folder.getFileName().toString();
+            int subs = ClipLibrary.listChildFolders(folder).size();
+            e.line2 = ClipLibrary.countClips(folder) + " clip(s)"
+                    + (subs > 0 ? "  -  " + subs + " folder(s)" : "");
+            entries.add(e);
+        }
+        List<Path> clips = new ArrayList<Path>();
+        try (Stream<Path> stream = Files.list(current)) {
+            stream.filter(p -> Files.isRegularFile(p) && isVideo(p))
+                    .forEach(clips::add);
+        } catch (IOException | RuntimeException ignored) {
+            // empty list
+        }
+        Collections.sort(clips, (a, b) -> Long.compare(modified(b),
+                modified(a)));
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+        for (Path clip : clips) {
+            Entry e = new Entry();
+            e.path = clip;
+            e.title = baseName(clip);
+            ClipNotes notes = ClipNotes.read(clip);
+            e.hasNote = !notes.isEmpty();
+            String info = sizeText(clip) + "  -  "
+                    + format.format(new Date(modified(clip)));
+            if (!notes.note.isEmpty()) {
+                e.line2 = notes.note;
+                e.line3 = info;
+            } else if (!notes.link.isEmpty()) {
+                e.line2 = "Link: " + notes.link;
+                e.line3 = info;
+            } else {
+                e.line2 = info;
+            }
+            entries.add(e);
+        }
+        if (selected >= entries.size()) selected = -1;
+        int max = Math.max(0, entries.size() - visibleRows());
         if (scroll > max) scroll = max;
         fingerprint = ClipLibrary.fingerprint(QuickClipConfig.get());
+    }
+
+    private static boolean isVideo(Path p) {
+        String n = p.getFileName().toString().toLowerCase(Locale.ROOT);
+        return !n.startsWith(".") && (n.endsWith(".mp4") || n.endsWith(".webm")
+                || n.endsWith(".mov") || n.endsWith(".mkv"));
+    }
+
+    private static long modified(Path p) {
+        try {
+            return Files.getLastModifiedTime(p).toMillis();
+        } catch (IOException exception) {
+            return 0L;
+        }
+    }
+
+    private static String baseName(Path p) {
+        String n = p.getFileName().toString();
+        int dot = n.lastIndexOf('.');
+        return dot > 0 ? n.substring(0, dot) : n;
+    }
+
+    private static String sizeText(Path p) {
+        try {
+            long b = Files.size(p);
+            if (b >= 1024L * 1024L) {
+                return String.format(Locale.ROOT, "%.1f MB",
+                        b / 1048576.0D);
+            }
+            return Math.max(1, b / 1024L) + " KB";
+        } catch (IOException exception) {
+            return "?";
+        }
     }
 
     private int visibleRows() {
         return Math.max(1, (listBottom - listTop) / ROW_H);
     }
 
-    private boolean isProtected(Path folder) {
-        Path root = ClipLibrary.getRoot(QuickClipConfig.get());
-        return folder.getParent() != null
-                && folder.getParent().equals(root)
-                && ClipLibrary.UNSORTED.equalsIgnoreCase(
-                        folder.getFileName().toString());
+    private Entry sel() {
+        return selected >= 0 && selected < entries.size()
+                ? entries.get(selected) : null;
     }
 
-    private void updateEnabled() {
-        boolean has = selected >= 0 && selected < children.size();
+    private boolean isProtected(Entry e) {
+        Path root = ClipLibrary.getRoot(QuickClipConfig.get());
+        return e != null && e.folder && e.path.getParent() != null
+                && e.path.getParent().equals(root)
+                && ClipLibrary.UNSORTED.equalsIgnoreCase(
+                        e.path.getFileName().toString());
+    }
+
+    private void updateButtons() {
+        Entry e = sel();
         boolean atRoot = current.equals(
                 ClipLibrary.getRoot(QuickClipConfig.get()));
         for (Object o : buttonList) {
             GuiButton b = (GuiButton) o;
-            if (b.id == ID_OPEN) b.enabled = has;
-            if (b.id == ID_RENAME) {
-                b.enabled = has && !isProtected(children.get(selected));
+            switch (b.id) {
+                case ID_BACK: b.enabled = !atRoot; break;
+                case ID_OPEN:
+                    b.enabled = e != null;
+                    b.displayString = e != null && !e.folder ? "Play" : "Open";
+                    break;
+                case ID_RENAME: b.enabled = e != null && !isProtected(e); break;
+                case ID_DELETE:
+                    b.enabled = e != null && !isProtected(e);
+                    b.displayString = e != null && e.path.equals(deleteArmed)
+                            ? "Confirm delete" : "Delete";
+                    break;
+                case ID_MOVE: b.enabled = e != null && !e.folder; break;
+                case ID_NOTES: b.enabled = e != null && !e.folder; break;
+                default: break;
             }
-            if (b.id == ID_DELETE) {
-                b.enabled = has && !isProtected(children.get(selected));
-            }
-            if (b.id == ID_UP) b.enabled = !atRoot;
         }
     }
 
     @Override
     protected void actionPerformed(GuiButton button) {
+        Entry e = sel();
+        if (button.id != ID_DELETE) deleteArmed = null;
         switch (button.id) {
-            case ID_UP:
+            case ID_BACK:
                 goUp();
                 break;
             case ID_OPEN:
@@ -131,40 +236,39 @@ public final class ClipFoldersScreen extends GuiScreen {
                         status = exception.getMessage();
                     }
                     reload();
-                    updateEnabled();
+                    updateButtons();
                 }));
                 break;
             case ID_RENAME:
-                if (selected >= 0 && selected < children.size()) {
-                    final Path folder = children.get(selected);
-                    mc.displayGuiScreen(new ClipTextPromptScreen(
-                            this, "Rename folder",
-                            folder.getFileName().toString(), name -> {
+                if (e != null) promptRename(e);
+                break;
+            case ID_DELETE:
+                if (e != null) deleteEntry(e);
+                break;
+            case ID_MOVE:
+                if (e != null && !e.folder) {
+                    final Path file = e.path;
+                    mc.displayGuiScreen(new ClipFolderPickerScreen(this,
+                            folder -> {
                         try {
-                            ClipLibrary.renameFolder(folder, name);
-                            status = "Folder renamed.";
+                            ClipLibrary.move(file, folder);
+                            status = "Moved to " + folder.getFileName() + ".";
                         } catch (IOException exception) {
-                            status = exception.getMessage();
+                            status = "Move failed: " + exception.getMessage();
                         }
                         reload();
-                        updateEnabled();
+                        updateButtons();
                     }));
                 }
                 break;
-            case ID_DELETE:
-                if (selected >= 0 && selected < children.size()) {
-                    try {
-                        ClipLibrary.deleteEmptyFolder(children.get(selected));
-                        status = "Folder deleted.";
-                        selected = -1;
-                    } catch (IOException exception) {
-                        status = exception.getMessage();
-                    }
-                    reload();
+            case ID_NOTES:
+                if (e != null && !e.folder) {
+                    mc.displayGuiScreen(new ClipNotesScreen(this, e.path,
+                            () -> {
+                        reload();
+                        updateButtons();
+                    }));
                 }
-                break;
-            case ID_CLIPS:
-                mc.displayGuiScreen(new VideoCollectionScreen(this, current));
                 break;
             case ID_SETTINGS:
                 mc.displayGuiScreen(new QuickClipSettingsScreen(this));
@@ -175,7 +279,51 @@ public final class ClipFoldersScreen extends GuiScreen {
             default:
                 break;
         }
-        updateEnabled();
+        updateButtons();
+    }
+
+    private void promptRename(Entry e) {
+        final Path path = e.path;
+        final boolean folder = e.folder;
+        mc.displayGuiScreen(new ClipTextPromptScreen(this,
+                folder ? "Rename folder" : "Rename clip", e.title, name -> {
+            try {
+                if (folder) {
+                    ClipLibrary.renameFolder(path, name);
+                } else {
+                    ClipLibrary.rename(path, name);
+                }
+                status = "Renamed.";
+            } catch (IOException | RuntimeException exception) {
+                status = "Rename failed: " + exception.getMessage();
+            }
+            reload();
+            updateButtons();
+        }));
+    }
+
+    private void deleteEntry(Entry e) {
+        if (!e.path.equals(deleteArmed)) {
+            deleteArmed = e.path;
+            status = e.folder
+                    ? "Click Delete again to remove this empty folder."
+                    : "Click Delete again to permanently delete this clip.";
+            return;
+        }
+        deleteArmed = null;
+        try {
+            if (e.folder) {
+                ClipLibrary.deleteEmptyFolder(e.path);
+            } else {
+                Files.delete(e.path);
+                ClipLibrary.deleteSidecar(e.path);
+            }
+            status = "Deleted.";
+            selected = -1;
+        } catch (IOException exception) {
+            status = "Delete failed: " + exception.getMessage();
+        }
+        reload();
     }
 
     private void goUp() {
@@ -184,29 +332,34 @@ public final class ClipFoldersScreen extends GuiScreen {
             current = current.getParent();
             selected = -1;
             scroll = 0;
+            deleteArmed = null;
             reload();
-            updateEnabled();
+            updateButtons();
         }
     }
 
     private void openSelected() {
-        if (selected >= 0 && selected < children.size()) {
-            current = children.get(selected);
+        Entry e = sel();
+        if (e == null) return;
+        if (e.folder) {
+            current = e.path;
             selected = -1;
             scroll = 0;
             reload();
-            updateEnabled();
+        } else if (!PlatformUtils.open(e.path)) {
+            status = "Could not open the clip.";
         }
+        updateButtons();
     }
 
     @Override
     public void updateScreen() {
         if (++refreshTicks >= 60) {
             refreshTicks = 0;
-            long now = ClipLibrary.fingerprint(QuickClipConfig.get());
-            if (now != fingerprint) {
+            if (ClipLibrary.fingerprint(QuickClipConfig.get())
+                    != fingerprint) {
                 reload();
-                updateEnabled();
+                updateButtons();
             }
         }
     }
@@ -227,7 +380,7 @@ public final class ClipFoldersScreen extends GuiScreen {
         super.handleMouseInput();
         int wheel = Mouse.getEventDWheel();
         if (wheel != 0) {
-            int max = Math.max(0, children.size() - visibleRows());
+            int max = Math.max(0, entries.size() - visibleRows());
             scroll = Math.max(0, Math.min(max, scroll + (wheel > 0 ? -1 : 1)));
         }
     }
@@ -241,17 +394,15 @@ public final class ClipFoldersScreen extends GuiScreen {
         if (button == 0 && mouseX >= left && mouseX <= right
                 && mouseY >= listTop && mouseY < listBottom) {
             int row = scroll + (mouseY - listTop) / ROW_H;
-            if (row >= 0 && row < children.size()) {
+            if (row >= 0 && row < entries.size()) {
                 long now = System.currentTimeMillis();
+                selected = row;
                 if (row == lastClickRow && now - lastClickMs < 400L) {
-                    selected = row;
                     openSelected();
-                } else {
-                    selected = row;
                 }
                 lastClickRow = row;
                 lastClickMs = now;
-                updateEnabled();
+                updateButtons();
             }
         }
     }
@@ -268,20 +419,20 @@ public final class ClipFoldersScreen extends GuiScreen {
         drawCenteredString(fontRendererObj, "QuickClip  -  " + path,
                 width / 2, 12, 0xFFFFFF);
         drawCenteredString(fontRendererObj,
-                ClipLibrary.countClips(current) + " clip(s) in this folder",
-                width / 2, 26, 0xAAAAAA);
+                "Double-click a folder to open it, a clip to play it",
+                width / 2, 26, 0x999999);
         int left = width / 2 - 205;
         int right = width / 2 + 205;
         drawRect(left, listTop - 2, right, listBottom, 0x80000000);
-        if (children.isEmpty()) {
+        if (entries.isEmpty()) {
             drawCenteredString(fontRendererObj,
-                    "No sub-folders. Use New Folder, or View clips here.",
+                    "Empty. Press F8 in-game to save a replay, or New Folder.",
                     width / 2, listTop + 14, 0x888888);
         }
         int rows = visibleRows();
-        for (int i = 0; i < rows && scroll + i < children.size(); i++) {
+        for (int i = 0; i < rows && scroll + i < entries.size(); i++) {
             int index = scroll + i;
-            Path folder = children.get(index);
+            Entry e = entries.get(index);
             int top = listTop + i * ROW_H;
             if (index == selected) {
                 drawRect(left + 1, top, right - 1, top + ROW_H - 2,
@@ -291,27 +442,42 @@ public final class ClipFoldersScreen extends GuiScreen {
                 drawRect(left + 1, top, right - 1, top + ROW_H - 2,
                         0x20FFFFFF);
             }
-            drawFolderIcon(left + 8, top + 5);
+            if (e.folder) {
+                drawFolderIcon(left + 8, top + 6);
+            } else {
+                drawClipIcon(left + 8, top + 6);
+            }
+            int textX = left + 34;
+            int maxW = right - textX - 6;
             fontRendererObj.drawStringWithShadow(
-                    folder.getFileName().toString(), left + 32, top + 4,
-                    0xFFFFFF);
-            int subs = ClipLibrary.listChildFolders(folder).size();
+                    fontRendererObj.trimStringToWidth(e.title, maxW),
+                    textX, top + 3, 0xFFFFFF);
             fontRendererObj.drawString(
-                    ClipLibrary.countClips(folder) + " clip(s)"
-                            + (subs > 0 ? "  -  " + subs + " folder(s)" : ""),
-                    left + 32, top + 14, 0xAAAAAA);
+                    fontRendererObj.trimStringToWidth(e.line2, maxW),
+                    textX, top + 13, e.hasNote ? 0xFFD27F : 0xAAAAAA);
+            if (e.line3 != null) {
+                fontRendererObj.drawString(
+                        fontRendererObj.trimStringToWidth(e.line3, maxW),
+                        textX, top + 22 - 1, 0x888888);
+            }
         }
         if (!status.isEmpty()) {
             drawCenteredString(fontRendererObj, status, width / 2,
-                    listBottom + 1, 0xFFAA55);
+                    listBottom + 2, 0xFFAA55);
         }
         super.drawScreen(mouseX, mouseY, partialTicks);
     }
 
-    /** Simple drawn folder icon (16x12). */
     private void drawFolderIcon(int x, int y) {
         Gui.drawRect(x, y, x + 7, y + 3, 0xFFD9A441);
         Gui.drawRect(x, y + 2, x + 18, y + 14, 0xFFF2C14E);
         Gui.drawRect(x, y + 5, x + 18, y + 6, 0xFFD9A441);
+    }
+
+    private void drawClipIcon(int x, int y) {
+        Gui.drawRect(x, y, x + 18, y + 14, 0xFF2F6FB5);
+        Gui.drawRect(x + 7, y + 3, x + 9, y + 11, 0xFFFFFFFF);
+        Gui.drawRect(x + 9, y + 4, x + 11, y + 10, 0xFFFFFFFF);
+        Gui.drawRect(x + 11, y + 5, x + 13, y + 9, 0xFFFFFFFF);
     }
 }

@@ -8,12 +8,8 @@ import net.minecraft.client.gui.GuiScreen;
 /** Minimal QuickClip settings: only the instant-replay essentials. */
 public final class QuickClipSettingsScreen extends GuiScreen {
     private static final int[] LENGTHS = {10, 20, 30, 60};
-    private static final String[] QUALITIES = {
-        "high", "balanced", "performance"};
-    private static final String[] QUALITY_LABELS = {
-        "High (720p / 60 FPS)",
-        "Balanced (720p / 30 FPS)",
-        "Performance (480p / 30 FPS)"};
+    private static final String[] QUALITIES = {"480p", "720p", "1080p"};
+    private static final String[] QUALITY_LABELS = {"480p", "720p", "1080p"};
     private static final int[] VOLUMES = {0, 25, 50, 75, 100};
 
     private static final int ID_LENGTH = 1;
@@ -25,6 +21,7 @@ public final class QuickClipSettingsScreen extends GuiScreen {
     private static final int ID_NOTIFY = 7;
     private static final int ID_FOLDER = 8;
     private static final int ID_DONE = 9;
+    private static final int ID_MENUS = 10;
 
     private final GuiScreen parent;
 
@@ -41,13 +38,13 @@ public final class QuickClipSettingsScreen extends GuiScreen {
         buttonList.clear();
         QuickClipConfig c = QuickClipConfig.get();
         int x = width / 2 - 100;
-        int y = height / 2 - 78;
+        int y = height / 2 - 92;
         buttonList.add(new GuiButton(ID_MINUS, x, y, 24, 20, "-"));
         buttonList.add(new GuiButton(ID_LENGTH, x + 26, y, 148, 20,
                 "Replay length: " + c.replayBufferDurationSeconds + "s"));
         buttonList.add(new GuiButton(ID_PLUS, x + 176, y, 24, 20, "+"));
         buttonList.add(new GuiButton(ID_FPS, x, y + 24, 200, 20,
-                "Frame rate: " + c.fps + " FPS"));
+                "Frame rate: " + c.fps + " FPS (recorded)"));
         buttonList.add(new GuiButton(ID_QUALITY, x, y + 48, 200, 20,
                 "Resolution: " + qualityLabel(c.replayBufferQuality)));
         buttonList.add(new GuiButton(ID_VOLUME, x, y + 72, 200, 20,
@@ -55,9 +52,12 @@ public final class QuickClipSettingsScreen extends GuiScreen {
         buttonList.add(new GuiButton(ID_NOTIFY, x, y + 96, 200, 20,
                 "Save notification: "
                         + (c.replayBufferNotify ? "ON" : "OFF")));
-        buttonList.add(new GuiButton(ID_FOLDER, x, y + 120, 200, 20,
+        buttonList.add(new GuiButton(ID_MENUS, x, y + 120, 200, 20,
+                "Capture while in menus: "
+                        + (c.captureInMenus ? "ON" : "OFF")));
+        buttonList.add(new GuiButton(ID_FOLDER, x, y + 144, 200, 20,
                 "Open clips folder"));
-        buttonList.add(new GuiButton(ID_DONE, x, y + 148, 200, 20,
+        buttonList.add(new GuiButton(ID_DONE, x, y + 172, 200, 20,
                 "Done"));
     }
 
@@ -65,7 +65,7 @@ public final class QuickClipSettingsScreen extends GuiScreen {
         for (int i = 0; i < QUALITIES.length; i++) {
             if (QUALITIES[i].equals(quality)) return QUALITY_LABELS[i];
         }
-        return QUALITY_LABELS[0];
+        return QUALITY_LABELS[1];
     }
 
     @Override
@@ -95,7 +95,7 @@ public final class QuickClipSettingsScreen extends GuiScreen {
                 c.fps = c.fps >= 60 ? 30 : 60;
                 break;
             case ID_QUALITY: {
-                int index = 0;
+                int index = 1;
                 for (int i = 0; i < QUALITIES.length; i++) {
                     if (QUALITIES[i].equals(c.replayBufferQuality)) {
                         index = i;
@@ -116,6 +116,9 @@ public final class QuickClipSettingsScreen extends GuiScreen {
                 c.gameAudioVolume = next;
                 break;
             }
+            case ID_MENUS:
+                c.captureInMenus = !c.captureInMenus;
+                break;
             case ID_NOTIFY:
                 c.replayBufferNotify = !c.replayBufferNotify;
                 break;
@@ -146,11 +149,11 @@ public final class QuickClipSettingsScreen extends GuiScreen {
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         drawDefaultBackground();
         drawCenteredString(fontRendererObj, "QuickClip Settings",
-                width / 2, height / 2 - 104, 0xFFFFFF);
+                width / 2, height / 2 - 118, 0xFFFFFF);
         drawCenteredString(fontRendererObj,
                 "Save hotkey: set in Controls (default F8). "
                         + "Changes apply right away.",
-                width / 2, height / 2 + 98, 0xAAAAAA);
+                width / 2, height / 2 + 100, 0xAAAAAA);
         super.drawScreen(mouseX, mouseY, partialTicks);
     }
 }

@@ -2,7 +2,6 @@ package dev.quickclip;
 
 import dev.quickclip.screen.FfmpegWelcomeScreen;
 import dev.quickclip.screen.QuickClipHomeButton;
-import dev.quickclip.screen.VideoCollectionScreen;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiMainMenu;

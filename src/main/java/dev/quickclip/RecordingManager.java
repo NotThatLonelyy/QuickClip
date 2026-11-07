@@ -1626,6 +1626,9 @@ public final class RecordingManager {
             }
             return;
         }
+        if (!config.captureInMenus && minecraft.currentScreen != null) {
+            return;
+        }
 
         int nativeWidth = makeEven(Math.max(2, minecraft.displayWidth));
         int nativeHeight = makeEven(Math.max(2, minecraft.displayHeight));

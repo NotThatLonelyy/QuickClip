@@ -41,7 +41,7 @@ public final class QuickClipConfig {
     public static final int[] AUTO_CLIP_FPS_VALUES = {15, 20, 24, 30, 45, 60};
     public static final String[] RESOLUTIONS = {"native", "1080p", "720p", "480p"};
     public static final String[] QUALITIES = {"high", "balanced", "performance"};
-    public static final String[] REPLAY_QUALITIES = {"source", "balanced", "performance", "high"};
+    public static final String[] REPLAY_QUALITIES = {"source", "balanced", "performance", "high", "480p", "720p", "1080p"};
     public static final String[] AUTO_RECORD_TRIGGERS = {"world_join", "game_start", "manual"};
     public static final String[] AUTO_STOP_TRIGGERS = {"world_leave", "game_quit", "never"};
     public static final String[] AUDIO_CHANNELS = {"auto", "mono", "stereo"};
@@ -251,7 +251,8 @@ public final class QuickClipConfig {
     // Replay, clips, markers and chapters
     public boolean replayBufferEnabled = true;
     public int replayBufferDurationSeconds = 30;
-    public String replayBufferQuality = "high";
+    public String replayBufferQuality = "720p";
+    public boolean captureInMenus = false;
     public int hotkeySaveReplayBuffer = Keyboard.KEY_F8;
     public boolean replayBufferNotify = true;
     public boolean bookmarksEnabled = true;
@@ -663,6 +664,9 @@ public final class QuickClipConfig {
     public static int[] resolveReplayPreset(String quality, int recordingHeight, int recordingFps) {
         String value = isBlank(quality) ? "source" : quality.trim().toLowerCase(Locale.ROOT);
         int fps = recordingFps > 0 ? recordingFps : 30;
+        if ("480p".equals(value)) return new int[]{Math.min(480, recordingHeight), fps};
+        if ("720p".equals(value)) return new int[]{Math.min(720, recordingHeight), fps};
+        if ("1080p".equals(value)) return new int[]{Math.min(1080, recordingHeight), fps};
         if ("balanced".equals(value)) return new int[]{Math.min(720, recordingHeight), Math.min(30, fps)};
         if ("performance".equals(value)) return new int[]{Math.min(480, recordingHeight), Math.min(30, fps)};
         if ("high".equals(value)) return new int[]{Math.min(1080, recordingHeight), Math.min(60, fps)};
@@ -827,7 +831,7 @@ public final class QuickClipConfig {
         diskSpaceMinFreeMB = clamp(diskSpaceMinFreeMB, 100, 10000);
         maxFileSizeMB = Math.max(0, maxFileSizeMB);
         replayBufferDurationSeconds = clamp(replayBufferDurationSeconds, 10, 600);
-        replayBufferQuality = sanitizeString(replayBufferQuality, REPLAY_QUALITIES, "balanced");
+        replayBufferQuality = sanitizeString(replayBufferQuality, REPLAY_QUALITIES, "720p");
         // QuickClip is replay-only: manual/auto recording, microphone,
         // auto clips and streamer mode are permanently disabled.
         autoRecord = false;

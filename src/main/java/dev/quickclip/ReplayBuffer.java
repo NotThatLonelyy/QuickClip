@@ -51,8 +51,8 @@ public final class ReplayBuffer {
     private static final long SAVE_ABORT_GRACE_MILLIS = 2000L;
     private static final String RECOVERY_MARKER =
             ".preserve-replay-chunks";
-    static final int MAX_REPLAY_WIDTH = 1280;
-    static final int MAX_REPLAY_HEIGHT = 720;
+    static final int MAX_REPLAY_WIDTH = 1920;
+    static final int MAX_REPLAY_HEIGHT = 1080;
     static final int MAX_REPLAY_FPS = 60;
 
     private final Object lock = new Object();
@@ -889,6 +889,8 @@ public final class ReplayBuffer {
                 try {
                     byte[] buffer = null;
                     byte[] previous = null;
+                    ClipOverlay overlay = ClipOverlay.create(
+                            storedWidth, storedHeight);
                     long framesWritten = 0L;
                     long firstTimestamp =
                         frames[0].timestampMillis;
@@ -923,6 +925,9 @@ public final class ReplayBuffer {
                         }
                         source.seek(frame.offset);
                         source.readFully(buffer);
+                        if (overlay != null) {
+                            overlay.apply(buffer);
+                        }
 
                         long desiredIndex = Math.max(
                             framesWritten,

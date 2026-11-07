@@ -41,3 +41,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
   screens (streamer, censor editor, theme, performance, diagnostics, overlay
   position, storage manager, watermark) deleted.
 - Folder browser screen (nested folders) and notes shown under clip names.
+- Folders and clips shown together in one list; per-clip view screens removed.
+- Resolution (480p/720p/1080p) and frame rate are separate settings.
+- Folders starting with "." are hidden and cannot be created.
+- Watermark moved from live HUD to a save-time overlay (logo, server IP,
+  date/time). "Capture while in menus" option added (default off).
