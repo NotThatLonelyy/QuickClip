@@ -185,7 +185,7 @@ public final class QuickClipClientEvents {
         }
         while (openVideos.isPressed()) {
             if (!openScreen(
-                    "dev.quickclip.screen.VideoCollectionScreen",
+                    "dev.quickclip.screen.ClipFoldersScreen",
                     minecraft.currentScreen)) {
                 PlatformUtils.open(
                         QuickClipConfig.get().getOutputDirectory());
@@ -424,7 +424,7 @@ public final class QuickClipClientEvents {
                 && event.button == homeButton
                 && event.button.id == HOME_BUTTON_ID) {
             Minecraft.getMinecraft().displayGuiScreen(
-                    new VideoCollectionScreen(event.gui));
+                    new dev.quickclip.screen.ClipFoldersScreen(event.gui));
         }
     }
 

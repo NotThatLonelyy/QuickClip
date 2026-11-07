@@ -35,3 +35,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - Removed manual/auto recording keys, auto-record, microphone, auto clips,
   streamer mode and share controls (code paths are inert, not deleted).
 - New workflow `build.yml` uploads artifact `QuickClip-1.8.9`.
+- Replay buffer frame cap raised 30 -> 60 FPS; default quality High
+  (720p/60). 120 FPS is not supported by the replay buffer.
+- Settings reduced to replay essentials; watermark settings and unused
+  screens (streamer, censor editor, theme, performance, diagnostics, overlay
+  position, storage manager, watermark) deleted.
+- Folder browser screen (nested folders) and notes shown under clip names.

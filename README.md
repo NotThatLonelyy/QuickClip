@@ -8,12 +8,14 @@ save-replay hotkey (default `F8`). No manual recording is needed.
 
 ## Features
 
-* Always-on replay buffer (default 30 s; 10-300 s slider in settings).
+* Always-on replay buffer (default 30 s). Minimal settings: replay length,
+  frame rate (30/60), resolution preset, game audio volume.
 * Save-replay hotkey (`F8`, rebindable in Minecraft Controls).
 * Game audio capture, existing quality and encoder settings.
-* QuickClip PNG watermark burned into the MP4 (enable, position, scale,
-  opacity in the Watermarks screen). Defaults to the bottom-right.
-* Clip manager (`F12`): folders, move, rename, delete, play, open folder.
+* Permanent QuickClip logo watermark in the MP4: bottom-right, 10% of the
+  screen height, 50% opacity (not configurable).
+* Clip manager (`F12`): notes-app style folders (nested, any depth) with
+  icons, then per-folder clip lists: move, rename, delete, play, notes.
   Folders are real directories, so they match Windows File Explorer, and the
   list refreshes when files change outside the game.
 * Optional note and optional uploaded link for each clip (`Notes` / `Link`).

@@ -53,7 +53,7 @@ public final class ReplayBuffer {
             ".preserve-replay-chunks";
     static final int MAX_REPLAY_WIDTH = 1280;
     static final int MAX_REPLAY_HEIGHT = 720;
-    static final int MAX_REPLAY_FPS = 30;
+    static final int MAX_REPLAY_FPS = 60;
 
     private final Object lock = new Object();
     private final Object saveLifecycleLock = new Object();
@@ -1320,7 +1320,7 @@ public final class ReplayBuffer {
             int seconds) {
         long required = width * (long) height * 3L
                 * fps * seconds;
-        long maximum = 4L * 1024L * 1024L * 1024L;
+        long maximum = 12L * 1024L * 1024L * 1024L;
         long free = -1L;
         try {
             Files.createDirectories(directory);

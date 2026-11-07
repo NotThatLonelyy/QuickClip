@@ -116,8 +116,16 @@ public final class VideoCollectionScreen extends GuiScreen {
     private String shareOverlayMessage;
     private long shareOverlayUntilMs;
 
+    private Path folderScope;
+
     public VideoCollectionScreen(GuiScreen parent) {
         this(parent, false);
+    }
+
+    /** Shows only the clips directly inside one folder. */
+    public VideoCollectionScreen(GuiScreen parent, Path folder) {
+        this(parent, false);
+        this.folderScope = folder;
     }
 
     public VideoCollectionScreen(
@@ -401,11 +409,13 @@ public final class VideoCollectionScreen extends GuiScreen {
                     QuickClipConfig config =
                             QuickClipConfig.get();
                     ClipLibrary.ensureLayout(config);
-                    Path scanDirectory = ClipLibrary.getRoot(config);
+                    Path scanDirectory = folderScope != null
+                            ? folderScope : ClipLibrary.getRoot(config);
                     if (scanDirectory != null
                             && Files.isDirectory(scanDirectory)) {
-                        Stream<Path> stream =
-                                Files.walk(scanDirectory, 32);
+                        Stream<Path> stream = folderScope != null
+                                ? Files.list(scanDirectory)
+                                : Files.walk(scanDirectory, 6);
                         try {
                             stream.filter(
                                             VideoCollectionScreen
@@ -1003,28 +1013,28 @@ public final class VideoCollectionScreen extends GuiScreen {
                 protectedVideo
                         ? colors.accent
                         : colors.textPrimary);
+        String notePreview = notePreview(metadata.file);
+        String sizeLine = tr(
+                "screen.quickclip.video_collection.meta.size_duration",
+                "Size: %s   Duration: %s",
+                metadata.sizeDisplay,
+                metadata.durationDisplay);
+        String recordedLine = tr(
+                "screen.quickclip.video_collection.meta.recorded_at",
+                "Recorded: %s",
+                metadata.recordedAtDisplay);
+        boolean hasNote = !notePreview.isEmpty();
         fontRendererObj.drawString(
                 fontRendererObj.trimStringToWidth(
-                        tr(
-                                "screen.quickclip.video_collection.meta.size_duration",
-                                "Size: %s   Duration: %s",
-                                metadata.sizeDisplay,
-                                metadata.durationDisplay),
+                        hasNote ? notePreview : sizeLine,
                         textMaximumWidth),
                 textX,
                 top + 17,
-                colors.textSecondary);
-        // Notes behave like a notes app: when present, show the note directly
-        // under the file name instead of hiding it behind an action button.
-        ClipNotes clipNotes = ClipNotes.read(metadata.file);
-        String belowName = clipNotes.note == null || clipNotes.note.trim().isEmpty()
-                ? tr("screen.quickclip.video_collection.meta.recorded_at",
-                        "Recorded: %s", metadata.recordedAtDisplay)
-                        + "  [" + ClipLibrary.folderLabel(
-                                QuickClipConfig.get(), metadata.file) + "]"
-                : clipNotes.note.trim();
+                hasNote ? colors.accent : colors.textSecondary);
         fontRendererObj.drawString(
-                fontRendererObj.trimStringToWidth(belowName, textMaximumWidth),
+                fontRendererObj.trimStringToWidth(
+                        hasNote ? sizeLine : recordedLine,
+                        textMaximumWidth),
                 textX,
                 top + 29,
                 colors.textSecondary);
@@ -2220,15 +2230,17 @@ public final class VideoCollectionScreen extends GuiScreen {
         }
     }
 
-    private final Map<Path, Boolean> noteMarkers =
-            new HashMap<Path, Boolean>();
+    private final Map<Path, String> noteMarkers =
+            new HashMap<Path, String>();
     private int externalCheckTicks;
     private long externalFingerprint = Long.MIN_VALUE;
 
-    private boolean hasNotes(Path file) {
-        Boolean cached = noteMarkers.get(file);
+    private String notePreview(Path file) {
+        String cached = noteMarkers.get(file);
         if (cached == null) {
-            cached = !ClipNotes.read(file).isEmpty();
+            ClipNotes notes = ClipNotes.read(file);
+            cached = !notes.note.isEmpty() ? notes.note
+                    : !notes.link.isEmpty() ? "Link: " + notes.link : "";
             noteMarkers.put(file, cached);
         }
         return cached;
@@ -2239,7 +2251,9 @@ public final class VideoCollectionScreen extends GuiScreen {
         mc.displayGuiScreen(new ClipTextPromptScreen(
                 this, "New folder name", "", name -> {
             try {
-                ClipLibrary.createFolder(QuickClipConfig.get(), name);
+                ClipLibrary.createFolder(folderScope != null
+                        ? folderScope
+                        : ClipLibrary.getRoot(QuickClipConfig.get()), name);
                 setStatus("Folder created.", false);
             } catch (IOException exception) {
                 setStatus("Could not create folder: "

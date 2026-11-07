@@ -43,23 +43,89 @@ public final class ClipLibrary {
         }
     }
 
-    /** Immediate sub-folders of the root (sorted), Unsorted first. */
+    /** All folders under the root (any depth), Unsorted first. */
     public static List<Path> listFolders(QuickClipConfig config) {
         Path root = getRoot(config);
         List<Path> folders = new ArrayList<Path>();
-        try (Stream<Path> stream = Files.list(root)) {
-            stream.filter(Files::isDirectory).forEach(folders::add);
-        } catch (IOException exception) {
+        try (Stream<Path> stream = Files.walk(root, 6)) {
+            stream.filter(p -> !p.equals(root) && Files.isDirectory(p))
+                    .forEach(folders::add);
+        } catch (IOException | RuntimeException exception) {
             return folders;
         }
-        Collections.sort(folders, (a, b) -> {
-            boolean au = UNSORTED.equalsIgnoreCase(a.getFileName().toString());
-            boolean bu = UNSORTED.equalsIgnoreCase(b.getFileName().toString());
+        final Path base = root;
+        Collections.sort(folders, (x, y) -> {
+            String a1 = base.relativize(x).toString();
+            String b1 = base.relativize(y).toString();
+            boolean au = UNSORTED.equalsIgnoreCase(a1);
+            boolean bu = UNSORTED.equalsIgnoreCase(b1);
             if (au != bu) return au ? -1 : 1;
-            return a.getFileName().toString()
-                    .compareToIgnoreCase(b.getFileName().toString());
+            return a1.compareToIgnoreCase(b1);
         });
         return folders;
+    }
+
+    /** Direct sub-folders of a folder, sorted by name. */
+    public static List<Path> listChildFolders(Path folder) {
+        List<Path> out = new ArrayList<Path>();
+        try (Stream<Path> stream = Files.list(folder)) {
+            stream.filter(Files::isDirectory).forEach(out::add);
+        } catch (IOException | RuntimeException exception) {
+            return out;
+        }
+        Collections.sort(out, (x, y) -> x.getFileName().toString()
+                .compareToIgnoreCase(y.getFileName().toString()));
+        return out;
+    }
+
+    /** Number of video files directly inside a folder. */
+    public static int countClips(Path folder) {
+        try (Stream<Path> stream = Files.list(folder)) {
+            return (int) stream.filter(p -> Files.isRegularFile(p)
+                    && p.getFileName().toString().toLowerCase(
+                            java.util.Locale.ROOT).endsWith(".mp4")).count();
+        } catch (IOException | RuntimeException exception) {
+            return 0;
+        }
+    }
+
+    public static Path createFolder(Path parent, String name)
+            throws IOException {
+        String clean = sanitizeName(name);
+        if (clean.isEmpty()) {
+            throw new IOException("Invalid folder name.");
+        }
+        Path folder = parent.resolve(clean);
+        if (Files.exists(folder)) {
+            throw new IOException("A folder named '" + clean + "' exists.");
+        }
+        Files.createDirectories(folder);
+        return folder;
+    }
+
+    public static Path renameFolder(Path folder, String name)
+            throws IOException {
+        String clean = sanitizeName(name);
+        if (clean.isEmpty()) {
+            throw new IOException("Invalid folder name.");
+        }
+        Path target = folder.resolveSibling(clean);
+        if (target.equals(folder)) return folder;
+        if (Files.exists(target)) {
+            throw new IOException("A folder named '" + clean + "' exists.");
+        }
+        moveFile(folder, target);
+        return target;
+    }
+
+    public static void deleteEmptyFolder(Path folder) throws IOException {
+        try (Stream<Path> stream = Files.list(folder)) {
+            if (stream.findAny().isPresent()) {
+                throw new IOException(
+                        "Folder is not empty. Move or delete its contents.");
+            }
+        }
+        Files.delete(folder);
     }
 
     /** Folder name shown for a clip, relative to the root. */
@@ -99,31 +165,6 @@ public final class ClipLibrary {
         }
         Files.createDirectories(folder);
         return folder;
-    }
-
-    /** Creates a folder inside a selected parent, allowing unlimited nesting under the clip root. */
-    public static Path createFolder(Path parent, String name) throws IOException {
-        String clean = sanitizeName(name);
-        if (clean.isEmpty()) throw new IOException("Invalid folder name.");
-        Path root = getRoot(QuickClipConfig.get()).toAbsolutePath().normalize();
-        Path base = parent == null ? root : parent.toAbsolutePath().normalize();
-        if (!base.startsWith(root)) throw new IOException("Invalid folder location.");
-        Path folder = base.resolve(clean).normalize();
-        if (!folder.startsWith(root)) throw new IOException("Invalid folder location.");
-        if (Files.exists(folder)) throw new IOException("A folder named '" + clean + "' exists.");
-        Files.createDirectories(folder);
-        return folder;
-    }
-
-    /** Lists direct children of any folder inside the clip library. */
-    public static List<Path> listFolders(Path parent) {
-        List<Path> folders = new ArrayList<Path>();
-        if (parent == null) return folders;
-        try (Stream<Path> stream = Files.list(parent)) {
-            stream.filter(Files::isDirectory).forEach(folders::add);
-        } catch (IOException exception) { return folders; }
-        Collections.sort(folders, (a, b) -> a.getFileName().toString().compareToIgnoreCase(b.getFileName().toString()));
-        return folders;
     }
 
     /** Moves a clip into a folder; never overwrites. Returns the new path. */
@@ -186,7 +227,7 @@ public final class ClipLibrary {
     public static long fingerprint(QuickClipConfig config) {
         Path root = getRoot(config);
         long[] hash = {17L};
-        try (Stream<Path> stream = Files.walk(root, 32)) {
+        try (Stream<Path> stream = Files.walk(root, 6)) {
             stream.forEach(path -> {
                 try {
                     hash[0] = hash[0] * 31L + path.toString().hashCode();

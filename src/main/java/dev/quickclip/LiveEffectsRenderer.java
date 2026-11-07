@@ -506,21 +506,14 @@ public final class LiveEffectsRenderer {
         }
 
         float animationAlpha = animationAlpha(slot, effectTimeMs);
-        float opacity = clamp(slot.opacity, 0, 100) / 100.0F;
+        float opacity = 0.5F; // QuickClip: fixed 50% opacity
         float finalAlpha = opacity * animationAlpha;
         if (finalAlpha <= 0.01F) {
             return;
         }
 
-        float userScale = Math.max(0.05F, slot.scale / 100.0F);
-        float maximumBox = Math.max(
-            1.0F,
-            Math.min(100.0F, screenWidth * 0.09F));
-        float fit = Math.min(
-            maximumBox / texture.width,
-            maximumBox / texture.height);
-        fit = Math.min(1.0F, fit);
-        float scale = fit * userScale;
+        // QuickClip: fixed logo, height = 10% of the screen height.
+        float scale = (screenHeight * 0.10F) / Math.max(1, texture.height);
         float scaledWidth = texture.width * scale;
         float scaledHeight = texture.height * scale;
         float[] position = computeWatermarkPosition(

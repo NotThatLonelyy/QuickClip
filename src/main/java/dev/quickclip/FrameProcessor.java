@@ -243,12 +243,8 @@ public final class FrameProcessor {
             if (slot.kind == WatermarkSlot.Kind.IMAGE) {
                 image = loadImage(slot.imagePath);
                 if (image == null) continue;
-                // Fixed QuickClip watermark size: roughly 10% of recorded frame height.
-                // Preserve aspect ratio so branding is consistent at every resolution.
-                contentHeight = Math.max(1, Math.round(height * 0.10F));
-                contentWidth = Math.max(1, Math.round(
-                        contentHeight * (image.getWidth(null)
-                                / (float) Math.max(1, image.getHeight(null)))));
+                contentWidth = Math.max(1, image.getWidth(null) * slot.scale / 100);
+                contentHeight = Math.max(1, image.getHeight(null) * slot.scale / 100);
             } else {
                 text = slot.resolveText(username);
                 font = new Font("SansSerif", Font.BOLD, Math.max(8, 14 * slot.scale / 100));

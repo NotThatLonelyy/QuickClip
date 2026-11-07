@@ -7,9 +7,9 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
 /**
- * Installs the bundled QuickClip logo as the default bottom-right image
- * watermark on first launch. Afterwards the user's own watermark settings are
- * never overwritten.
+ * QuickClip's permanent watermark: the bundled logo, bottom-right, 50%
+ * opacity, 10% of the screen height (sized in LiveEffectsRenderer). Enforced
+ * on every launch; there is no user-facing watermark setting.
  */
 public final class DefaultWatermark {
     private static final String RESOURCE = "/assets/quickclip/watermark.png";
@@ -20,8 +20,6 @@ public final class DefaultWatermark {
 
     public static void ensureSeeded() {
         QuickClipConfig config = QuickClipConfig.get();
-        // Re-apply the fixed branding policy on startup so old editable
-        // watermark configurations are migrated automatically.
         try (InputStream in =
                 DefaultWatermark.class.getResourceAsStream(RESOURCE)) {
             if (in == null) {
@@ -32,8 +30,6 @@ public final class DefaultWatermark {
             Path target = WatermarkImageStore.getWatermarksDir()
                     .resolve(FILE_NAME);
             Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
-            // QuickClip branding is intentionally fixed: one logo, bottom-right,
-            // 50% opacity. It is baked into recordings only (not a permanent HUD).
             config.watermarkSlots.clear();
             WatermarkSlot slot = new WatermarkSlot();
             slot.enabled = true;
@@ -43,15 +39,12 @@ public final class DefaultWatermark {
             slot.position = WatermarkSlot.Position.BOTTOM_RIGHT;
             slot.opacity = 50;
             slot.scale = 100;
-            slot.padding = 8;
             config.watermarkSlots.add(slot);
             config.watermarksEnabled = true;
-            config.showWatermarksLive = false;
-            config.defaultWatermarkSeeded = true;
-            config.save();
+            config.showWatermarksLive = true;
         } catch (IOException | RuntimeException exception) {
             QuickClipMod.LOGGER.warn(
-                    "[QuickClip] Could not install default watermark: {}",
+                    "[QuickClip] Could not install watermark: {}",
                     exception.getMessage());
         }
     }

@@ -251,7 +251,7 @@ public final class QuickClipConfig {
     // Replay, clips, markers and chapters
     public boolean replayBufferEnabled = true;
     public int replayBufferDurationSeconds = 30;
-    public String replayBufferQuality = "balanced";
+    public String replayBufferQuality = "high";
     public int hotkeySaveReplayBuffer = Keyboard.KEY_F8;
     public boolean replayBufferNotify = true;
     public boolean bookmarksEnabled = true;
@@ -744,7 +744,6 @@ public final class QuickClipConfig {
             audioSampleRate = 48000;
             perfOptimizerEnabled = false;
             perfAutoAdjust = false;
-            perfActionLowerFps = false;
         } else {
             resolution = "1080p";
             fps = 60;
